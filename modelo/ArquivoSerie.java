@@ -1,16 +1,16 @@
 package modelo;
 
 import aeds3.*;
-
 import entidades.Serie;
-
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 
 public class ArquivoSerie extends Arquivo<Serie> {
 
   Arquivo<Serie> arqSeries;
   ArvoreBMais<ParNomeId> indiceNome;
+  ListaInvertida listaInvertida;
 
   public ArquivoSerie() throws Exception {
     super("series", Serie.class.getConstructor());
@@ -19,14 +19,48 @@ public class ArquivoSerie extends Arquivo<Serie> {
       diretorio.mkdirs();
     }
     indiceNome = new ArvoreBMais<>(ParNomeId.class.getConstructor(), 5, "./dados" + "/indiceNome.db");
-
+    listaInvertida = new ListaInvertida(4, "./dados/dicionario.series.db", "./dados/blocos.series.db");
   }
 
   @Override
   public int create(Serie s) throws Exception {
     int id = super.create(s);
     indiceNome.create(new ParNomeId(s.getName(), id));
+
+    List<String> tokens = TextProcessor.tokenize(s.getName());
+
+    for (String termo : tokens) {
+      float tf = TextProcessor.calculateTf(termo, s.getName());
+      System.out.println("Adicionando termo '" + termo + "' para série ID " + id + " com TF=" + tf);
+      listaInvertida.create(termo, new ElementoLista(id, tf));
+      listaInvertida.updateTfidf(termo);
+    }
+
     return id;
+  }
+
+  public Serie[] buscarPorTermo(String termo) throws Exception {
+    List<String> tokens = TextProcessor.tokenize(termo.toLowerCase());
+
+    if (tokens.isEmpty()) {
+      return new Serie[0];
+    }
+
+    // Busca apenas pelo primeiro termo para simplificar
+    String primeiroTermo = tokens.get(0);
+
+    ElementoLista[] elementos = listaInvertida.read(primeiroTermo);
+
+    if (elementos == null || elementos.length == 0) {
+      return new Serie[0];
+    }
+
+    Serie[] series = new Serie[elementos.length];
+    for (int i = 0; i < elementos.length; i++) {
+      series[i] = read(elementos[i].getId());
+    }
+
+    return series;
   }
 
   public Serie[] readNome(String nome) throws Exception {
@@ -74,7 +108,14 @@ public class ArquivoSerie extends Arquivo<Serie> {
     Serie s = read(id);
     if (s != null) {
       if (super.delete(id)) {
-        return indiceNome.delete(new ParNomeId(s.getName(), id));
+        indiceNome.delete(new ParNomeId(s.getName(), id));
+
+        // Remover da lista invertida
+        List<String> tokens = TextProcessor.tokenize(s.getName());
+        for (String termo : tokens) {
+          listaInvertida.delete(termo, id);
+        }
+        return true;
       }
     }
     return false;
@@ -90,13 +131,26 @@ public class ArquivoSerie extends Arquivo<Serie> {
 
   @Override
   public boolean update(Serie novaSerie) throws Exception {
-    Serie serie = read(novaSerie.getId());
+    Serie serieAntiga = read(novaSerie.getId());
 
-    if (serie != null) {
+    if (serieAntiga != null) {
       if (super.update(novaSerie)) {
-        if (!serie.getName().equals(novaSerie.getName())) {
-          indiceNome.delete(new ParNomeId(serie.getName(), serie.getId()));
+        if (!serieAntiga.getName().equals(novaSerie.getName())) {
+          indiceNome.delete(new ParNomeId(serieAntiga.getName(), serieAntiga.getId()));
           indiceNome.create(new ParNomeId(novaSerie.getName(), novaSerie.getId()));
+
+          // Remover termos antigos da lista invertida
+          List<String> tokensAntigos = TextProcessor.tokenize(serieAntiga.getName());
+          for (String termo : tokensAntigos) {
+            listaInvertida.delete(termo, novaSerie.getId());
+          }
+
+          // Adicionar novos termos na lista invertida
+          List<String> tokensNovos = TextProcessor.tokenize(novaSerie.getName());
+          for (String termo : tokensNovos) {
+            float tf = TextProcessor.calculateTf(termo, novaSerie.getName());
+            listaInvertida.create(termo, new ElementoLista(novaSerie.getId(), tf));
+          }
         }
         return true;
       }

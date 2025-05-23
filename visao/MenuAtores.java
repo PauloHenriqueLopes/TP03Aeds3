@@ -1,10 +1,8 @@
 package visao;
 
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import entidades.Serie;
 import entidades.Atores;
-import entidades.Episodio;
 import modelo.ArquivoAtor;
 import modelo.ArquivoSerie;
 
@@ -98,7 +96,7 @@ public class MenuAtores {
             }
         } while (!dadosCorretos);
 
-        //sexo
+        // sexo
         dadosCorretos = false;
         do {
             System.out.print("Sexo do ator (F/M): ");
@@ -116,7 +114,6 @@ public class MenuAtores {
                 scanner.nextLine();
             }
         } while (!dadosCorretos);
-
 
         // Carregar séries
         try {
@@ -182,8 +179,6 @@ public class MenuAtores {
 
         System.out.println("Séries selecionadas: " + (idSeries.isEmpty() ? "Nenhuma" : idSeries));
 
-
-
         // Confirmação
         System.out.println("\nConfirma a inclusão do ator? (S/N): ");
         char resp = scanner.nextLine().charAt(0);
@@ -201,47 +196,47 @@ public class MenuAtores {
 
     public void buscarAtor() {
         System.out.println("\nBuscar Ator");
-        System.out.print("Nome do ator: ");
-        String nome = scanner.nextLine().trim();
-    
+        System.out.print("Termo de busca: ");
+        String termo = scanner.nextLine().trim();
+
         try {
-            Atores[] ator = arqAtor.readNome(nome);
-    
-            if (ator == null || ator.length == 0) {
-                System.out.println("Nenhum ator encontrado com esse nome.");
+            // Usando a lista invertida para buscar
+            Atores[] atores = arqAtor.buscarPorTermo(termo);
+
+            if (atores == null || atores.length == 0) {
+                System.out.println("Nenhum ator encontrado com esse termo.");
                 return;
             }
-    
-            if (ator.length > 1) {
+
+            if (atores.length > 1) {
                 int n = 1;
-                for (Atores a : ator) {
+                for (Atores a : atores) {
                     System.out.printf("[%d] %s\n", n++, a.getName());
                 }
-    
+
                 int op = -1;
                 do {
                     System.out.print("Escolha um ator: ");
                     try {
                         op = Integer.parseInt(scanner.nextLine());
-                        if (op < 1 || op > ator.length) {
-                            System.out.println("Número inválido. Escolha entre 1 e " + ator.length);
+                        if (op < 1 || op > atores.length) {
+                            System.out.println("Número inválido. Escolha entre 1 e " + atores.length);
                             op = -1;
                         }
                     } catch (NumberFormatException e) {
                         System.out.println("Entrada inválida. Digite um número.");
                     }
                 } while (op == -1);
-    
-                mostrarAtor(ator[op - 1]);
+
+                mostrarAtor(atores[op - 1]);
             } else {
-                mostrarAtor(ator[0]);
+                mostrarAtor(atores[0]);
             }
         } catch (Exception e) {
             System.out.println("Erro do sistema. Não foi possível buscar o ator!");
             e.printStackTrace();
         }
     }
-    
 
     public void mostrarAtor(Atores ator) {
         if (ator != null) {
@@ -252,7 +247,7 @@ public class MenuAtores {
             System.out.println("----------------------");
         }
     }
-    
+
     public void alterarAtor() {
         System.out.println("Alterar Ator");
         String nome;
@@ -262,9 +257,10 @@ public class MenuAtores {
         do {
             System.out.print("Nome do ator que deseja alterar: ");
             nome = scanner.nextLine();
-            if(nome.isEmpty()) return;
+            if (nome.isEmpty())
+                return;
 
-            if(nome.length() >= 1) {
+            if (nome.length() >= 1) {
                 dadosCorretos = true;
             } else {
                 System.out.println("Nome inválido. O nome do ator deve conter pelo menos 4 caracteres.");
@@ -273,12 +269,12 @@ public class MenuAtores {
 
         try {
             atores = arqAtor.readNome(nome);
-            
-            if(atores.length > 0) {
+
+            if (atores.length > 0) {
                 int op = 0;
-                if(atores.length > 1) {
+                if (atores.length > 1) {
                     int n = 1;
-                    for(Atores a : atores) {
+                    for (Atores a : atores) {
                         System.out.println((n++) + ") " + a.getName());
                     }
 
@@ -295,16 +291,16 @@ public class MenuAtores {
                 } else {
                     op = 1;
                 }
-                Atores ator = atores[op-1];
+                Atores ator = atores[op - 1];
 
-                //Nome
+                // Nome
                 System.out.print("\nNovo nome do ator (deixe em branco para manter o anterior): ");
                 String novoNome = scanner.nextLine();
                 if (novoNome.length() >= 4) {
                     ator.setName(novoNome);
                 }
 
-                //Idade
+                // Idade
                 System.out.print("\nNova idade do ator (deixe em branco para manter o anterior): ");
                 String idadeStr = scanner.nextLine().trim();
                 if (!idadeStr.isEmpty()) {
@@ -320,12 +316,12 @@ public class MenuAtores {
                     }
                 }
 
-                //Sexo
+                // Sexo
                 System.out.print("\nNovo sexo do ator (F/M): ");
                 String sexoStr = scanner.nextLine().toUpperCase();
-                if(!sexoStr.isEmpty()) {
+                if (!sexoStr.isEmpty()) {
                     try {
-                        if (sexoStr.charAt(0) == 'F'|| sexoStr.charAt(0) == 'M') {
+                        if (sexoStr.charAt(0) == 'F' || sexoStr.charAt(0) == 'M') {
                             ator.setSexo(sexoStr.charAt(0));
                         }
                     } catch (Exception e) {
@@ -340,7 +336,8 @@ public class MenuAtores {
                     if (seriesDisponiveis == null || seriesDisponiveis.isEmpty()) {
                         System.out.println("Nenhuma série cadastrada.");
                     } else {
-                        System.out.println("\nSelecione as novas séries para o ator (digite os números separados por espaço):");
+                        System.out.println(
+                                "\nSelecione as novas séries para o ator (digite os números separados por espaço):");
                         System.out.println("[0] Nenhuma (desvincular todas)");
 
                         for (int i = 0; i < seriesDisponiveis.size(); i++) {
@@ -392,7 +389,7 @@ public class MenuAtores {
                     e.printStackTrace();
                 }
 
-                //Confirmação
+                // Confirmação
                 System.out.print("\nDeseja confirmar as alterações? (S/N): ");
                 char resp = scanner.next().charAt(0);
                 scanner.nextLine();
@@ -411,7 +408,6 @@ public class MenuAtores {
                 System.out.println("Nenhum ator encontrado com esse nome.");
             }
 
-
         } catch (Exception e) {
             System.out.println("Erro do sistema. Não foi possível excluir o ator");
             e.printStackTrace();
@@ -420,34 +416,37 @@ public class MenuAtores {
 
     public void excluirAtor() {
         System.out.println("Excluir Ator");
-    
+
         String nome;
         boolean dadosCorretos = false;
-    
+
         do {
             System.out.print("Digite o nome do ator (Mínimo 4 caracteres): ");
             nome = scanner.nextLine();
-            if (nome.isEmpty()) return;
-            if (nome.length() >= 4) dadosCorretos = true;
-            else System.out.println("Nome inválido!");
+            if (nome.isEmpty())
+                return;
+            if (nome.length() >= 4)
+                dadosCorretos = true;
+            else
+                System.out.println("Nome inválido!");
         } while (!dadosCorretos);
-    
+
         try {
             Atores[] atores = arqAtor.readNome(nome);
             int op = 0;
-    
+
             if (atores == null || atores.length == 0) {
                 System.out.println("Ator não encontrado.");
                 return;
             }
-    
+
             if (atores.length > 1) {
                 int n = 1;
-    
+
                 for (Atores a : atores) {
                     System.out.println((n++) + ") " + a.getName());
                 }
-    
+
                 System.out.println("Escolha o Ator: ");
                 do {
                     try {
@@ -461,17 +460,17 @@ public class MenuAtores {
             } else {
                 op = 1;
             }
-    
+
             Atores atorSelecionado = atores[op - 1];
-    
+
             // Verifica se o ator está vinculado a alguma série
             if (atorSelecionado.getIdSerie() != null && !atorSelecionado.getIdSerie().trim().isEmpty()) {
                 System.out.println("Este ator está vinculado a uma ou mais séries e não pode ser excluído.");
                 return;
             }
-    
+
             mostrarAtor(atorSelecionado);
-    
+
             System.out.print("\nConfirma a exclusão do ator? (S/N) ");
             char resp = scanner.nextLine().charAt(0);
             if (resp == 'S' || resp == 's') {
@@ -489,28 +488,28 @@ public class MenuAtores {
             e.printStackTrace();
         }
     }
-    
 
     public void mostrarSeries() {
         System.out.println("Lista de Séries que o ator participa: ");
         String nome;
         boolean dadosCorretos = false;
-        
+
         do {
             System.out.print("Nome do ator: ");
             nome = scanner.nextLine();
-            if (nome.isEmpty()) return;
-    
+            if (nome.isEmpty())
+                return;
+
             if (nome.length() >= 1) {
                 dadosCorretos = true;
             } else {
                 System.out.println("Nome inválido. O nome do ator deve conter pelo menos 4 caracteres.");
             }
         } while (!dadosCorretos);
-    
+
         try {
             Atores[] atores = arqAtor.readNome(nome);
-    
+
             if (atores.length > 0) {
                 int op = 0;
                 if (atores.length > 1) {
@@ -518,7 +517,7 @@ public class MenuAtores {
                     for (Atores a : atores) {
                         System.out.println((n++) + ") " + a.getName());
                     }
-    
+
                     do {
                         System.out.print("Escolha um ator: ");
                         try {
@@ -532,17 +531,17 @@ public class MenuAtores {
                 } else {
                     op = 1;
                 }
-    
+
                 Atores ator = atores[op - 1];
-    
+
                 if (ator.getIdSerie() == null || ator.getIdSerie().trim().isEmpty()) {
                     System.out.println("Este ator não está vinculado a nenhuma série.");
                     return;
                 }
-    
+
                 String[] ids = ator.getIdSerie().split(",");
                 ArrayList<Serie> series = arqSerie.readAll();
-    
+
                 ArrayList<String> seriesEncontradas = new ArrayList<>();
                 for (String idStr : ids) {
                     try {
@@ -556,7 +555,7 @@ public class MenuAtores {
                     } catch (NumberFormatException e) {
                     }
                 }
-    
+
                 if (seriesEncontradas.isEmpty()) {
                     System.out.println("Este ator não está vinculado a nenhuma série existente.");
                 } else {
@@ -570,8 +569,8 @@ public class MenuAtores {
             }
         } catch (Exception e) {
             System.out.println("Erro ao listar séries do ator!");
-            e.printStackTrace();        
+            e.printStackTrace();
         }
     }
-       
+
 }

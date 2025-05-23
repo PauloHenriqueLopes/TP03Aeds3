@@ -3,11 +3,7 @@ package visao;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Scanner;
-
-import aeds3.ParIdId;
 import entidades.Atores;
 import entidades.Episodio;
 import entidades.Serie;
@@ -166,14 +162,12 @@ public class MenuSeries {
 
      public void buscarSerie() {
           System.out.println("\nBuscar Série");
-          System.out.println("\n\nNome da Série: ");
-          String nome = scanner.nextLine();
-
-          if (nome.isEmpty())
-               return;
+          System.out.print("Nome da série: ");
+          String termo = scanner.nextLine().trim();
 
           try {
-               Serie[] series = arqSerie.readNome(nome);
+               // Usando a lista invertida para buscar
+               Serie[] series = arqSerie.buscarPorTermo(termo);
                if (series.length > 0) {
                     int n = 1;
                     for (Serie s : series) {
@@ -192,7 +186,7 @@ public class MenuSeries {
                     } while (op <= 0 || op > n - 1);
                     mostraSerie(series[op - 1]);
                } else {
-                    System.out.println("Nenhuma série encontrada.");
+                    System.out.println("Nenhuma série encontrada com esse termo.");
                }
           } catch (Exception e) {
                System.out.println("Erro do sistema. Não foi possível buscar a série!");

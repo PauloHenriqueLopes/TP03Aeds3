@@ -2,9 +2,12 @@ package modelo;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 
 import aeds3.Arquivo;
 import aeds3.ArvoreBMais;
+import aeds3.ElementoLista;
+import aeds3.ListaInvertida;
 import aeds3.ParIdId;
 import entidades.Episodio;
 
@@ -13,6 +16,7 @@ public class ArquivoEpisodio extends Arquivo<Episodio> {
     Arquivo<Episodio> arqEpisodio;
     ArvoreBMais<ParNomeId> indiceNome;
     ArvoreBMais<ParIdId> indiceSerieEpisodio;
+    ListaInvertida listaInvertida;
 
     public ArquivoEpisodio() throws Exception {
         super("episodio", Episodio.class.getConstructor());
@@ -24,6 +28,8 @@ public class ArquivoEpisodio extends Arquivo<Episodio> {
 
         indiceSerieEpisodio = new ArvoreBMais<>(ParIdId.class.getConstructor(), 5,
                 "./dados/episodio" + "/indiceSerieEpisodio.db");
+        listaInvertida = new ListaInvertida(4, "./dados/dicionario.episodios.db", "./dados/blocos.episodios.db");
+
     }
 
     @Override
@@ -32,7 +38,30 @@ public class ArquivoEpisodio extends Arquivo<Episodio> {
         indiceNome.create(new ParNomeId(e.getName(), id));
         indiceSerieEpisodio.create(new ParIdId(e.getSerieId(), id));
 
+        // Indexar palavras do título na lista invertida
+        List<String> tokens = TextProcessor.tokenize(e.getName());
+        for (String termo : tokens) {
+            float tf = TextProcessor.calculateTf(termo, e.getName());
+            listaInvertida.create(termo, new ElementoLista(id, tf));
+        }
+
         return id;
+    }
+
+    public Episodio[] buscarPorTermo(String termo) throws Exception {
+        // Busca na lista invertida
+        ElementoLista[] elementos = listaInvertida.read(termo.toLowerCase());
+        if (elementos == null || elementos.length == 0) {
+            return new Episodio[0];
+        }
+
+        // Ordenar por TF-IDF (já está ordenado na classe ElementoLista)
+        Episodio[] episodios = new Episodio[elementos.length];
+        for (int i = 0; i < elementos.length; i++) {
+            episodios[i] = read(elementos[i].getId());
+        }
+
+        return episodios;
     }
 
     public Episodio[] readNome(String nome) throws Exception {
@@ -85,7 +114,15 @@ public class ArquivoEpisodio extends Arquivo<Episodio> {
         Episodio e = read(id);
         if (e != null) {
             if (super.delete(id)) {
-                return indiceNome.delete(new ParNomeId(e.getName(), id));
+                indiceNome.delete(new ParNomeId(e.getName(), id));
+                indiceSerieEpisodio.delete(new ParIdId(e.getSerieId(), id));
+
+                // Remover da lista invertida
+                List<String> tokens = TextProcessor.tokenize(e.getName());
+                for (String termo : tokens) {
+                    listaInvertida.delete(termo, id);
+                }
+                return true;
             }
         }
         return false;
@@ -101,14 +138,34 @@ public class ArquivoEpisodio extends Arquivo<Episodio> {
 
     @Override
     public boolean update(Episodio novoEpisodio) throws Exception {
-        Episodio e = read(novoEpisodio.getId());
-
-        if (e != null) {
+        Episodio episodioAntigo = read(novoEpisodio.getId());
+        if (episodioAntigo != null) {
             if (super.update(novoEpisodio)) {
-                if (!e.getName().equals(novoEpisodio.getName())) {
-                    indiceNome.delete(new ParNomeId(e.getName(), e.getId()));
+                // Atualizar índices se necessário
+                if (!episodioAntigo.getName().equals(novoEpisodio.getName())) {
+                    indiceNome.delete(new ParNomeId(episodioAntigo.getName(), novoEpisodio.getId()));
                     indiceNome.create(new ParNomeId(novoEpisodio.getName(), novoEpisodio.getId()));
+
+                    // Remover termos antigos da lista invertida
+                    List<String> tokensAntigos = TextProcessor.tokenize(episodioAntigo.getName());
+                    for (String termo : tokensAntigos) {
+                        listaInvertida.delete(termo, novoEpisodio.getId());
+                    }
+
+                    // Adicionar novos termos na lista invertida
+                    List<String> tokensNovos = TextProcessor.tokenize(novoEpisodio.getName());
+                    for (String termo : tokensNovos) {
+                        float tf = TextProcessor.calculateTf(termo, novoEpisodio.getName());
+                        listaInvertida.create(termo, new ElementoLista(novoEpisodio.getId(), tf));
+                    }
                 }
+
+                // Atualizar índice de série se necessário
+                if (episodioAntigo.getSerieId() != novoEpisodio.getSerieId()) {
+                    indiceSerieEpisodio.delete(new ParIdId(episodioAntigo.getSerieId(), novoEpisodio.getId()));
+                    indiceSerieEpisodio.create(new ParIdId(novoEpisodio.getSerieId(), novoEpisodio.getId()));
+                }
+
                 return true;
             }
         }
@@ -117,33 +174,33 @@ public class ArquivoEpisodio extends Arquivo<Episodio> {
 
     public ArrayList<Episodio> readPorSerie(int id) throws Exception {
         ArrayList<Episodio> lista = new ArrayList<>();
-    
+
         // Lê todos os pares da árvore que correspondem à série
         ArrayList<ParIdId> listaPares = indiceSerieEpisodio.read(new ParIdId(id, -1));
-    
+
         for (ParIdId par : listaPares) {
             Episodio ep = super.read(par.getId2());
             if (ep != null) {
                 lista.add(ep);
             }
         }
-    
+
         return lista;
     }
 
     public ArrayList<Episodio> readPorSerieETemporada(int id, int temporadaEscolhida) throws Exception {
         ArrayList<Episodio> lista = new ArrayList<>();
-    
+
         // Lê todos os pares da árvore que correspondem à série
         ArrayList<ParIdId> listaPares = indiceSerieEpisodio.read(new ParIdId(id, -1));
-    
+
         for (ParIdId par : listaPares) {
             Episodio ep = super.read(par.getId2());
             if (ep != null && ep.getTemporada() == temporadaEscolhida) {
                 lista.add(ep);
             }
         }
-    
+
         return lista;
     }
 }
